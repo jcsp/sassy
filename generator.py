@@ -11,21 +11,22 @@ class Generator(object):
         skt = ctx.socket(zmq.PUSH)
         skt.connect("tcp://127.0.0.1:%s" % PORT)
 
-        RAW_PERIOD = 10
-        server_count = 10
-        stats_per_server = 10
+        RAW_PERIOD = 1
+        server_count = 1
+        stats_per_server = 1
         time_iterations = (3600 * 24) / RAW_PERIOD
         #time_iterations = (1200) / RAW_PERIOD
         start = time.time()
         sent = 0
         format_length = struct.calcsize(FORMAT)
+        t_offset = int(time.time())
         for t_counter in xrange(0, time_iterations):
-            t = t_counter * RAW_PERIOD
+            t = t_offset + t_counter * RAW_PERIOD
             val = 0.0
             # test signal: superposition of sine waves
             SINE_PERIODS = ((0.1, 60), (0.4, 3600), (1.0, 3600 * 24))
             for magnitude, period in SINE_PERIODS:
-                val += magnitude * math.sin((float(t % period) / float(period) * math.pi))
+                val += magnitude * math.sin((float(t % period) / float(period) * math.pi * 2))
 
             for server in xrange(0, server_count):
                 buffer = ctypes.create_string_buffer(format_length * stats_per_server)

@@ -2,7 +2,7 @@ from collections import defaultdict
 import struct
 import time
 import zmq
-from common import PORT, FORMAT
+from common import PORT, FORMAT, DEFAULT_PERIODS, RAW_PERIOD
 import pymongo
 import bson
 
@@ -32,8 +32,6 @@ db = conn.journaldb
 #db.create_collection('journal', capped = True, size = 1024 * 1024 * 1024 * 2)
 #journal_collection = db.journal
 
-RAW_PERIOD = 0
-DEFAULT_PERIODS = (RAW_PERIOD, 60, 300, 3600, 3600 * 24)
 for period in DEFAULT_PERIODS:
     collection_name = "rollup_%s" % period
     db.drop_collection(collection_name)
@@ -52,7 +50,7 @@ class SeriesState(object):
         if self.last_t is None:
             self.last_t = t
             for period in self.ACCUMULATOR_PERIODS[1:]:
-                rounded = (t % period) * period
+                rounded = (t / period) * period
                 self.next_rollup_gate[period] = rounded + period * 2
         else:
             if not t > self.next_rollup_gate[self.ACCUMULATOR_PERIODS[1]]:
@@ -60,7 +58,6 @@ class SeriesState(object):
             for period_index, p in enumerate(self.ACCUMULATOR_PERIODS[1:]):
                 if t > self.next_rollup_gate[p]:
                     self.next_rollup_gate[p] += p
-                    #print 'passed gate for period %s' % p
                     t_start = self.next_rollup_gate[p] - p * 2
                     t_end = t_start + p
                     data = self.accumulators[self.ACCUMULATOR_PERIODS[period_index]]
