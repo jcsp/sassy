@@ -12,7 +12,7 @@ class Generator(object):
 
         server_count = 1000
         stats_per_server = 100
-        time_iterations = 1000
+        time_iterations = 100
         start = time.time()
         sent = 0
         format_length = struct.calcsize(FORMAT)
