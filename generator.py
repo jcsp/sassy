@@ -1,5 +1,6 @@
 import ctypes
 import struct
+import math
 import zmq
 from common import PORT, FORMAT
 import time
@@ -10,18 +11,27 @@ class Generator(object):
         skt = ctx.socket(zmq.PUSH)
         skt.connect("tcp://127.0.0.1:%s" % PORT)
 
-        server_count = 1000
-        stats_per_server = 100
-        time_iterations = 100
+        RAW_PERIOD = 10
+        server_count = 10
+        stats_per_server = 10
+        time_iterations = (3600 * 24) / RAW_PERIOD
+        #time_iterations = (1200) / RAW_PERIOD
         start = time.time()
         sent = 0
         format_length = struct.calcsize(FORMAT)
-        for t in xrange(0, time_iterations):
+        for t_counter in xrange(0, time_iterations):
+            t = t_counter * RAW_PERIOD
+            val = 0.0
+            # test signal: superposition of sine waves
+            SINE_PERIODS = ((0.1, 60), (0.4, 3600), (1.0, 3600 * 24))
+            for magnitude, period in SINE_PERIODS:
+                val += magnitude * math.sin((float(t % period) / float(period) * math.pi))
+
             for server in xrange(0, server_count):
                 buffer = ctypes.create_string_buffer(format_length * stats_per_server)
                 for stat in xrange(0, stats_per_server):
-                    val = 0
-                    struct.pack_into(FORMAT, buffer, stat * format_length, server, stat, t, val)
+                    id = (server << 16) + stat
+                    struct.pack_into(FORMAT, buffer, stat * format_length, id, t, val)
                 skt.send(buffer)
                 sent += stats_per_server
 

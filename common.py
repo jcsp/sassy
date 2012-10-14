@@ -1,3 +1,3 @@
 
 PORT = 9780
-FORMAT = "hhIQ"
+FORMAT = "IIQ"
