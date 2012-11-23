@@ -12,7 +12,7 @@ def view():
     conn = pymongo.Connection()
     db = conn.journaldb
     charts = []
-    for period in DEFAULT_PERIODS[1:]:
+    for period in DEFAULT_PERIODS:
         collection_name = "rollup_%s" % period
         chart = {
             'name': collection_name,

@@ -12,8 +12,8 @@ class Generator(object):
         skt.connect("tcp://127.0.0.1:%s" % PORT)
 
         RAW_PERIOD = 1
-        server_count = 1
-        stats_per_server = 1
+        server_count = 10
+        stats_per_server = 10
         time_iterations = (3600 * 24) / RAW_PERIOD
         #time_iterations = (1200) / RAW_PERIOD
         start = time.time()

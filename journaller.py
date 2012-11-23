@@ -10,6 +10,17 @@ journal = []
 series_files = {}
 
 
+# Options for your journal:
+#  - none: die horribly when restarting service (ok if you're writing out often)
+#  - raw disk: very fast, requires handy local access
+#  - mongodb capped collection: about half as fast as raw disk
+
+# Options for your persistent output:
+#  - mongodb capped collections (requires up-front decision about how long to keep)
+#  - mongodb regular collections
+#  - mysql tables
+#  - ... others?
+
 
 # There is a global horizon
 # When it is PERIOD * 2 ahead of the last
@@ -38,6 +49,11 @@ for period in DEFAULT_PERIODS:
     db.create_collection(collection_name)
 
 class SeriesState(object):
+    # These periods are not written out as they come in,
+    # they are written in bulk when the next period up
+    # is written
+
+    IN_MEMORY_PERIODS = (0, 60,)
     ACCUMULATOR_PERIODS = DEFAULT_PERIODS
     def __init__(self, id):
         self._id = id
@@ -61,8 +77,6 @@ class SeriesState(object):
                     t_start = self.next_rollup_gate[p] - p * 2
                     t_end = t_start + p
                     data = self.accumulators[self.ACCUMULATOR_PERIODS[period_index]]
-                    #print 'available data %s' % data
-                    #print 'time bounds %s %s' % (t_start, t_end)
                     sum = 0.0
                     count = 0
                     latest = None
@@ -75,12 +89,31 @@ class SeriesState(object):
                         collection_name = "rollup_%s" % p
                         mid_point_t = t_start + p / 2
                         mid_point_val = sum / float(count)
-                        db[collection_name].insert({
-                            't': mid_point_t,
-                            'v': mid_point_val,
-                            's_id': self._id
-                        })
+                        if not p in self.IN_MEMORY_PERIODS:
+                            # FIXME: no need to do an individual insert here, can
+                            # stash them all until the end of processing an
+                            # incoming message
+                            db[collection_name].insert({
+                                't': mid_point_t,
+                                'v': mid_point_val,
+                                's_id': self._id
+                            })
                         self.accumulators[p].append((mid_point_t, mid_point_val))
+
+                        if self.ACCUMULATOR_PERIODS[period_index] in self.IN_MEMORY_PERIODS:
+                            # FIXME this is going to write out the raw data every time
+                            # I write out a 60s rollup, really I want to wait until the
+                            # 300s rollup before writing out either.
+                            records = []
+                            for datapoint in data[:latest + 1]:
+                                records.append({
+                                    't': datapoint[0],
+                                    'v': datapoint[1],
+                                    's_id': self._id
+                                })
+                            collection_name = "rollup_%s" % self.ACCUMULATOR_PERIODS[period_index]
+                            db[collection_name].insert(records)
+
                         self.accumulators[self.ACCUMULATOR_PERIODS[period_index]] = data[latest + 1:]
 
     def insert(self, t, val, rollup = False):
